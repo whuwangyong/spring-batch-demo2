@@ -1,0 +1,11 @@
+.gradle/
+.mvn/
+build/
+out/
+gradle/
+gradlew
+gradlew.bat
+mvnw
+mvnw.cmd
+pom.xml
+
