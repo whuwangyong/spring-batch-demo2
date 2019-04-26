@@ -123,14 +123,13 @@ public class BatchConfiguration {
 
 
     @Bean
-    public DataSourceInitializer dataSourceInitializer(DataSource dataSource)
-            throws MalformedURLException {
+    public DataSourceInitializer dataSourceInitializer(DataSource dataSource) {
         ResourceDatabasePopulator databasePopulator =
                 new ResourceDatabasePopulator();
 
-        databasePopulator.addScript(dropReopsitoryTables);
-        databasePopulator.addScript(dataReopsitorySchema);
-        databasePopulator.addScript(peopleTables);
+//        databasePopulator.addScript(dropReopsitoryTables);
+//        databasePopulator.addScript(dataReopsitorySchema);
+//        databasePopulator.addScript(peopleTables);
         databasePopulator.setIgnoreFailedDrops(true);
 
         DataSourceInitializer initializer = new DataSourceInitializer();
@@ -141,18 +140,21 @@ public class BatchConfiguration {
     }
 
 
-    private JobRepository getJobRepository() throws Exception {
+    @Bean
+    public JobRepository getJobRepository() throws Exception {
         JobRepositoryFactoryBean factory = new JobRepositoryFactoryBean();
         factory.setDataSource(dataSource());
         factory.setTransactionManager(getTransactionManager());
         factory.afterPropertiesSet();
-        return (JobRepository) factory.getObject();
+        return factory.getObject();
     }
 
-    private PlatformTransactionManager getTransactionManager() {
+    @Bean
+    public PlatformTransactionManager getTransactionManager() {
         return new DataSourceTransactionManager();
     }
 
+    @Bean
     public JobLauncher getJobLauncher() throws Exception {
         SimpleJobLauncher jobLauncher = new SimpleJobLauncher();
         jobLauncher.setJobRepository(getJobRepository());
