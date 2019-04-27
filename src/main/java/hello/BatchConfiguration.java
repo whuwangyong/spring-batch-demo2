@@ -1,13 +1,19 @@
 package hello;
 
 import javax.sql.DataSource;
+import javax.swing.event.DocumentEvent;
 
+import hello.device.DeviceCommand;
+import hello.device.DeviceItemProcessor;
+import hello.device.DeviceLineAggregator;
+import hello.device.DeviceLineMapper;
 import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobExecutionListener;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.explore.JobExplorer;
+import org.springframework.batch.core.explore.support.JobExplorerFactoryBean;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.launch.support.SimpleJobLauncher;
@@ -17,25 +23,22 @@ import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourc
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.FlatFileItemWriter;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.item.file.builder.FlatFileItemWriterBuilder;
 import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
-import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
-import org.springframework.batch.support.transaction.ResourcelessTransactionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.DataSourceInitializer;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.transaction.PlatformTransactionManager;
-
-import java.net.MalformedURLException;
 
 @Configuration
 @EnableBatchProcessing
@@ -62,9 +65,21 @@ public class BatchConfiguration {
     }
 
     @Bean
-    public PersonItemProcessor processor() {
-        return new PersonItemProcessor();
+    public FlatFileItemReader<DeviceCommand> deviceReader() {
+        return new FlatFileItemReaderBuilder<DeviceCommand>()
+                .name("deviceItemReader")
+                .resource(new ClassPathResource("batch-data-source.csv"))
+                .lineMapper(new DeviceLineMapper())
+                .build();
     }
+
+    @Bean
+    public PersonProcessor processor() {
+        return new PersonProcessor();
+    }
+
+    @Bean
+    public DeviceItemProcessor deviceItemProcessor() {return  new DeviceItemProcessor();}
 
     @Bean
     public JdbcBatchItemWriter<Person> writer(DataSource dataSource) {
@@ -74,26 +89,36 @@ public class BatchConfiguration {
             .dataSource(dataSource)
             .build();
     }
+
+    @Bean
+    public FlatFileItemWriter<DeviceCommand> deviceItemWriter() {
+        return new FlatFileItemWriterBuilder<DeviceCommand>()
+                .name("deviceItemWriter")
+                .resource(new ClassPathResource("batch-data-target.csv"))
+                .lineAggregator(new DeviceLineAggregator())
+                .build();
+    }
+
     // end::readerwriterprocessor[]
 
     // tag::jobstep[]
+//    @Bean
+//    public Job importUserJob(JobCompletionNotificationListener listener, Step step1) {
+//        return jobBuilderFactory.get("importUserJob")
+//            .incrementer(new RunIdIncrementer())
+//            .listener(listener)
+//            .flow(step1)
+//            .end()
+//            .build();
+//    }
+//
     @Bean
-    public Job importUserJob(JobCompletionNotificationListener listener, Step step1) {
-        return jobBuilderFactory.get("importUserJob")
-            .incrementer(new RunIdIncrementer())
-            .listener(listener)
-            .flow(step1)
-            .end()
-            .build();
-    }
-
-    @Bean
-    public Step step1(JdbcBatchItemWriter<Person> writer) {
+    public Step step1() {
         return stepBuilderFactory.get("step1")
-            .<Person, Person> chunk(5)
-            .reader(reader())
-            .processor(processor())
-            .writer(writer)
+            .<DeviceCommand, DeviceCommand> chunk(5)
+            .reader(deviceReader())
+            .processor(deviceItemProcessor())
+            .writer(deviceItemWriter())
             .build();
     }
     // end::jobstep[]
@@ -140,25 +165,26 @@ public class BatchConfiguration {
     }
 
 
-    @Bean
-    public JobRepository getJobRepository() throws Exception {
-        JobRepositoryFactoryBean factory = new JobRepositoryFactoryBean();
-        factory.setDataSource(dataSource());
-        factory.setTransactionManager(getTransactionManager());
-        factory.afterPropertiesSet();
-        return factory.getObject();
-    }
 
-    @Bean
-    public PlatformTransactionManager getTransactionManager() {
-        return new DataSourceTransactionManager();
-    }
-
-    @Bean
-    public JobLauncher getJobLauncher() throws Exception {
-        SimpleJobLauncher jobLauncher = new SimpleJobLauncher();
-        jobLauncher.setJobRepository(getJobRepository());
-        jobLauncher.afterPropertiesSet();
-        return jobLauncher;
-    }
+//    @Bean
+//    public JobRepository getJobRepository() throws Exception {
+//        JobRepositoryFactoryBean factory = new JobRepositoryFactoryBean();
+//        factory.setDataSource(dataSource());
+//        factory.setTransactionManager(getTransactionManager());
+//        factory.afterPropertiesSet();
+//        return factory.getObject();
+//    }
+//
+//    @Bean
+//    public PlatformTransactionManager getTransactionManager() {
+//        return new DataSourceTransactionManager();
+//    }
+//
+//    @Bean
+//    public JobLauncher getJobLauncher() throws Exception {
+//        SimpleJobLauncher jobLauncher = new SimpleJobLauncher();
+//        jobLauncher.setJobRepository(getJobRepository());
+//        jobLauncher.afterPropertiesSet();
+//        return jobLauncher;
+//    }
 }
